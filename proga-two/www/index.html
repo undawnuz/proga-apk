@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Proga Two</title>
+<style>
+:root{--bg:#E9ECEE;--panel:#F7F8F9;--page:#fff;--ink:#1B1F23;--mut:#55606A;--line:#D5DADE;--acc:#0F6B5C;--onacc:#fff;--dang:#B3261E;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14181B;--panel:#1C2226;--page:#222A2F;--ink:#E8ECEF;--mut:#9AA6B0;--line:#34404A;--acc:#4DC3AC;--onacc:#0C1F1B;--dang:#F2B8B5}}
+:root[data-theme="dark"]{--bg:#14181B;--panel:#1C2226;--page:#222A2F;--ink:#E8ECEF;--mut:#9AA6B0;--line:#34404A;--acc:#4DC3AC;--onacc:#0C1F1B;--dang:#F2B8B5}
+:root[data-theme="sepia"]{--bg:#E4D9C3;--panel:#EFE5D0;--page:#F8F0DE;--ink:#3A2F20;--mut:#7A6A52;--line:#CDBE9F;--acc:#8A4B1F;--onacc:#fff;--dang:#A12B1E}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,select,input,textarea{font:inherit;color:inherit}
+button{min-height:44px;padding:0 16px;border:1px solid var(--line);background:var(--page);border-radius:8px;cursor:pointer}
+button.pri{background:var(--acc);color:var(--onacc);border-color:var(--acc);font-weight:600}
+button.dng{color:var(--dang);border-color:var(--dang)}
+button.sm{min-height:44px;min-width:44px;padding:0 10px}
+select,input[type=text]{min-height:44px;padding:0 12px;border:1px solid var(--line);background:var(--page);border-radius:8px}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+header .sp{flex:1}
+.wrap{display:flex;flex-wrap:wrap;align-items:flex-start}
+aside{flex:1 1 240px;max-width:300px;padding:16px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:6px;min-height:calc(100vh - 70px)}
+aside .pg{display:block;width:100%;text-align:left;border-color:transparent;background:transparent;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+aside .pg.on{background:var(--page);border-color:var(--line);font-weight:600}
+main{flex:1 1 480px;min-width:0;padding:28px 16px;display:flex;justify-content:center}
+article{width:100%;max-width:720px;background:var(--page);border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.18);padding:clamp(20px,6vw,56px);display:flex;flex-direction:column;gap:20px;font:var(--fs,18px)/1.7 Georgia,"Times New Roman",serif}
+article h1{margin:0;font-size:30px;line-height:1.25}
+article p{margin:0;white-space:pre-wrap}
+figure{margin:0;display:flex;flex-direction:column;gap:8px}
+figure img,figure video{width:100%;max-height:70vh;object-fit:contain;border-radius:6px;background:#0002}
+figcaption{font:14px system-ui,sans-serif;color:var(--mut);text-align:center}
+.blk{border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;font:16px/1.5 system-ui,sans-serif}
+.blk textarea{width:100%;min-height:120px;resize:vertical;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--page);font:17px/1.6 Georgia,serif}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.nav{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line);padding-top:16px;font:14px system-ui,sans-serif;color:var(--mut)}
+.empty{color:var(--mut);font:16px system-ui,sans-serif}
+.lbl{font:13px system-ui,sans-serif;color:var(--mut)}
+</style>
+</head>
+<body>
+<header id="top"></header>
+<div class="wrap"><aside id="side"></aside><main><article id="art"></article></main></div>
+<input type="file" id="file" accept="image/*,video/*" hidden>
+<input type="file" id="imp" accept="*/*" hidden>
+<script>
+const uid=()=>Math.random().toString(36).slice(2,9);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let S={books:[],bi:null,pi:0,mode:'read',theme:'auto',pg:{},fs:18,snd:false,auto:false,q:''},arm=null,db=null;
+const newPage=n=>({id:uid(),title:'Страница '+n,blocks:[{t:'text',v:''}]});
+const newBook=n=>({id:uid(),title:n||'Новая книга',pages:[newPage(1)]});
+function idb(){return new Promise(r=>{try{const q=indexedDB.open('chitalka',1);q.onupgradeneeded=()=>q.result.createObjectStore('s');q.onsuccess=()=>{db=q.result;r()};q.onerror=()=>r()}catch(e){r()}})}
+function load(){return new Promise(r=>{if(!db)return r();try{const g=db.transaction('s').objectStore('s').get('d');g.onsuccess=()=>r(g.result);g.onerror=()=>r()}catch(e){r()}})}
+let tm;function save(){if(B())S.pg[B().id]=S.pi;clearTimeout(tm);tm=setTimeout(()=>{if(!db)return;try{db.transaction('s','readwrite').objectStore('s').put({books:S.books,bi:S.bi,pi:S.pi,theme:S.theme,pg:S.pg,fs:S.fs},'d')}catch(e){}},300)}
+const B=()=>S.books[S.bi],P=()=>B()&&B().pages[S.pi];
+const normalize=b=>b.pages.forEach(p=>p.blocks.sort((x,y)=>(y.t==='media')-(x.t==='media')));
+const applyTheme=()=>{const r=document.documentElement;r.style.setProperty('--fs',S.fs+'px');if(S.theme==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',S.theme)};
+function render(){
+ const ed=S.mode==='edit',b=B(),p=P();
+ document.getElementById('top').innerHTML=
+  `<select data-a="book" aria-label="Книга">${S.books.map((x,i)=>`<option value="${i}"${i===S.bi?' selected':''}>${esc(x.title)}</option>`).join('')}</select>
+   <button class="dng" data-a="delbook">${arm==='book'?'Точно удалить?':'Удалить книгу'}</button><button data-a="import">Открыть файл</button><span class="sp"></span>
+   <select data-a="theme" aria-label="Тема">${[['auto','Тема: авто'],['light','Светлая'],['dark','Тёмная'],['sepia','Сепия']].map(x=>`<option value="${x[0]}"${x[0]===S.theme?' selected':''}>${x[1]}</option>`).join('')}</select>
+   
+   
+   `;
+ document.getElementById('side').innerHTML=!b?'':
+  (ed?`<span class="lbl">Название книги</span><input type="text" data-f="btitle" value="${esc(b.title)}"><button data-a="dupbook">Копия книги</button><button class="dng" data-a="delbook">${arm==='book'?'Точно удалить?':'Удалить книгу'}</button><div style="height:8px"></div>`:'')
+  +`<input type="text" data-f="q" placeholder="Поиск по книге" value="${esc(S.q)}"><span class="lbl">Страницы</span>`
+  +b.pages.map((x,i)=>!hit(x)?'':`<button class="pg${i===S.pi?' on':''}" data-a="page" data-i="${i}">${i+1}. ${esc(x.title)}</button>`).join('')
+  +(ed?`<button data-a="newpage">+ Страница</button>`:'');
+ const art=document.getElementById('art');
+ if(!p){art.innerHTML='<p class="empty">Нет книг. Нажми «Открыть файл» и выбери файл книги из Proga One.</p>';return}
+ if(!ed){
+  art.innerHTML=`<h1>${esc(p.title)}</h1>`+p.blocks.map(k=>k.t==='text'?(k.v.trim()?`<p>${esc(k.v)}</p>`:''):`<figure>${k.m==='video'?`<video src="${k.src}" controls autoplay muted loop playsinline></video>`:`<img src="${k.src}" alt="${esc(k.c||'')}">`}${k.c?`<figcaption>${esc(k.c)}</figcaption>`:''}</figure>`).join('')
+   +`<div class="nav"><button data-a="prev"${S.pi?'':' disabled'}>← Назад</button><span>${S.pi+1} / ${b.pages.length}</span><button class="pri" data-a="next"${S.pi<b.pages.length-1?'':' disabled'}>Дальше →</button></div>`;
+ }else{
+  art.innerHTML=`<div class="blk"><span class="lbl">Название страницы</span><input type="text" data-f="ptitle" value="${esc(p.title)}"></div>`
+   +p.blocks.map((k,i)=>`<div class="blk">`+(k.t==='text'?`<textarea data-f="v" data-i="${i}" placeholder="Пиши текст здесь">${esc(k.v)}</textarea>`
+    :`${k.m==='video'?`<video src="${k.src}" controls autoplay muted loop playsinline style="width:100%;max-height:40vh"></video>`:`<img src="${k.src}" alt="" style="width:100%;max-height:40vh;object-fit:contain">`}<input type="text" data-f="c" data-i="${i}" placeholder="Подпись (необязательно)" value="${esc(k.c||'')}">`)
+    +`<div class="row"><button class="sm" data-a="up" data-i="${i}" aria-label="Выше">↑</button><button class="sm" data-a="down" data-i="${i}" aria-label="Ниже">↓</button><button class="sm dng" data-a="delblk" data-i="${i}" aria-label="Удалить блок">✕</button></div></div>`).join('')
+   +`<div class="row"><button data-a="addtext">+ Текст</button><button class="pri" data-a="addmedia">+ GIF / видео</button><button data-a="duppage">Копия страницы</button><button data-a="pgl">← Страницу влево</button><button data-a="pgr">Страницу вправо →</button><button class="dng" data-a="delpage">${arm==='page'?'Точно удалить?':'Удалить страницу'}</button></div>`;
+ }
+}
+document.addEventListener('click',e=>{
+ const t=e.target.closest('[data-a]');if(!t||t.tagName==='SELECT')return;
+ const a=t.dataset.a,i=+t.dataset.i,b=B(),p=P();const was=arm;arm=null;
+ if(a==='mode')S.mode=t.dataset.m;
+ else if(a==='newbook'){S.books.push(newBook('Книга '+(S.books.length+1)));S.bi=S.books.length-1;S.pi=0;S.mode='edit'}
+ else if(a==='page'){S.pi=i}
+ else if(a==='prev')S.pi--;else if(a==='next')S.pi++;
+ else if(a==='newpage'){b.pages.push(newPage(b.pages.length+1));S.pi=b.pages.length-1}
+ else if(a==='delbook'){if(was==='book'){S.books.splice(S.bi,1);S.bi=S.books.length?0:null;S.pi=0}else arm='book'}
+ else if(a==='delpage'){if(was==='page'){b.pages.splice(S.pi,1);if(!b.pages.length)b.pages.push(newPage(1));S.pi=Math.max(0,S.pi-1)}else arm='page'}
+ else if(a==='addtext')p.blocks.push({t:'text',v:''});
+ else if(a==='fsm')S.fs=Math.max(14,S.fs-2);
+ else if(a==='fsp')S.fs=Math.min(30,S.fs+2);
+ else if(a==='snd')S.snd=!S.snd;
+ else if(a==='auto'){S.auto=!S.auto;clearInterval(autoT);if(S.auto)autoT=setInterval(()=>{if(B()&&S.pi<B().pages.length-1){S.pi++;save();render();scrollTo(0,0)}else{S.auto=false;clearInterval(autoT);render()}},8000)}
+ else if(a==='duppage'){const c=JSON.parse(JSON.stringify(p));c.id=uid();c.title+=' (копия)';b.pages.splice(S.pi+1,0,c);S.pi++}
+ else if(a==='dupbook'){const c=JSON.parse(JSON.stringify(b));c.id=uid();c.title+=' (копия)';S.books.push(c);S.bi=S.books.length-1;S.pi=0}
+ else if(a==='pgl'){if(S.pi>0){[b.pages[S.pi-1],b.pages[S.pi]]=[b.pages[S.pi],b.pages[S.pi-1]];S.pi--}}
+ else if(a==='pgr'){if(S.pi<b.pages.length-1){[b.pages[S.pi+1],b.pages[S.pi]]=[b.pages[S.pi],b.pages[S.pi+1]];S.pi++}}
+ else if(a==='exportall'){exportBook(true);return}
+ else if(a==='export'){exportBook();return}
+ else if(a==='import'){document.getElementById('imp').click();return}
+ else if(a==='addmedia'){document.getElementById('file').click();return}
+ else if(a==='delblk')p.blocks.splice(i,1);
+ else if(a==='up'&&i>0)[p.blocks[i-1],p.blocks[i]]=[p.blocks[i],p.blocks[i-1]];
+ else if(a==='down'&&i<p.blocks.length-1)[p.blocks[i+1],p.blocks[i]]=[p.blocks[i],p.blocks[i+1]];
+ S.books.forEach(normalize);save();render();scrollTo(0,0);
+});
+document.addEventListener('change',e=>{const a=e.target.dataset.a;if(a==='book'){S.bi=+e.target.value;S.pi=Math.min(S.pg[B().id]||0,B().pages.length-1);arm=null;save();render()}else if(a==='theme'){S.theme=e.target.value;applyTheme();save()}});
+document.addEventListener('input',e=>{
+ const f=e.target.dataset.f;if(!f)return;
+ if(f==='q'){S.q=e.target.value;render();const q=document.querySelector('[data-f=q]');q.focus();q.setSelectionRange(99,99);return}const p=P(),i=+e.target.dataset.i;
+ if(f==='btitle'){B().title=e.target.value;document.querySelector('#top option:checked').textContent=e.target.value}
+ else if(f==='ptitle'){p.title=e.target.value;(document.querySelector('#side .pg.on')||{}).textContent=(S.pi+1)+'. '+e.target.value}
+ else if(f==='v')p.blocks[i].v=e.target.value;
+ else if(f==='c')p.blocks[i].c=e.target.value;
+ save();
+});
+document.getElementById('file').addEventListener('change',e=>{
+ const f=e.target.files[0];e.target.value='';if(!f)return;
+ if(f.size>30e6){alert('Файл больше 30 МБ — выбери поменьше');return}
+ const r=new FileReader();r.onload=()=>{P().blocks.unshift({t:'media',m:f.type.startsWith('video')?'video':'img',src:r.result,c:''});save();render()};r.readAsDataURL(f);
+});
+let autoT,tx=0;
+const vp=()=>document.querySelectorAll('video').forEach(v=>{v.muted=!S.snd;v.play().catch(()=>{})});
+const hit=x=>!S.q||(x.title+' '+x.blocks.map(k=>k.v||k.c||'').join(' ')).toLowerCase().includes(S.q.toLowerCase());
+function go(d){if(S.mode!=='read'||!B())return;const n=S.pi+d;if(n<0||n>=B().pages.length)return;S.pi=n;save();render();scrollTo(0,0)}
+function addBook(bk){if(!bk||!Array.isArray(bk.pages)||!bk.pages.length)return;bk.id=uid();bk.title=String(bk.title||'Книга');bk.pages.forEach(p=>{p.id=uid();p.title=String(p.title||'Страница');p.blocks=Array.isArray(p.blocks)?p.blocks:[]});normalize(bk);S.books.push(bk)}
+document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;if(e.key==='ArrowRight')go(1);if(e.key==='ArrowLeft')go(-1)});
+document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX},{passive:true});
+document.addEventListener('touchend',e=>{if(e.target.closest('video,input,textarea,select'))return;const d=e.changedTouches[0].clientX-tx;if(Math.abs(d)>70)go(d<0?1:-1)},{passive:true});
+async function exportBook(all){
+ const b=B();if(!b)return;
+ const d=window.claude?await claude.use('downloads'):null;
+ if(!d){alert('Сохранение в файл здесь недоступно');return}
+ const blob=new Blob([JSON.stringify(all?{app:'chitalka',v:1,books:S.books}:{app:'chitalka',v:1,book:b})],{type:'application/json'});
+ const name=all?'Все книги.kniga.json':(b.title.replace(/[\\/:*?"<>|]+/g,'').trim()||'kniga')+'.kniga.json';
+ try{await d.save({filename:name,data:blob})}catch(e){if(!e||e.code!=='declined')alert('Не удалось сохранить: '+((e&&(e.message||e.code))||''))}
+}
+document.getElementById('imp').addEventListener('change',async e=>{
+ const f=e.target.files[0];e.target.value='';if(!f)return;
+ try{
+  const o=JSON.parse(await f.text());
+  if(o&&o.app==='chitalka'&&Array.isArray(o.books)){const n=S.books.length;o.books.forEach(addBook);if(S.books.length===n)throw 0;S.bi=n;S.pi=0;S.mode='read';save();render();return}
+  if(!o||o.app!=='chitalka'||!o.book||!Array.isArray(o.book.pages)||!o.book.pages.length)throw 0;
+  const bk=o.book;bk.id=uid();bk.title=String(bk.title||'Книга');
+  bk.pages.forEach(p=>{p.id=uid();p.title=String(p.title||'Страница');p.blocks=Array.isArray(p.blocks)?p.blocks:[]});
+  normalize(bk);S.books.push(bk);S.bi=S.books.length-1;S.pi=0;S.mode='read';arm=null;save();render();scrollTo(0,0);
+ }catch(x){alert('Это не файл книги из Читалки')}
+});
+idb().then(load).then(d=>{
+ if(d&&d.books&&d.books.length){S.books=d.books;S.bi=Math.min(d.bi||0,d.books.length-1);S.pi=d.pi||0;S.theme=d.theme||'auto';S.pg=d.pg||{};S.fs=d.fs||18}
+ else{S.books=[];S.bi=null}
+ S.books.forEach(normalize);applyTheme();render();
+ new MutationObserver(vp).observe(document.getElementById('art'),{childList:true});
+ vp();
+});
+</script>
+</body>
+</html>
